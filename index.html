@@ -10,36 +10,39 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
         body { font-family: 'Inter', sans-serif; }
-        .tt-cell { min-width: 90px; }
+        .tt-cell { min-width: 80px; }
         .current-day-col { background-color: #eef2ff !important; }
-        .current-period-row { box-shadow: inset 0 0 0 2px #6366f1; border-radius: 4px; }
+        @media (max-width: 640px) {
+          .tt-cell { min-width: 60px; font-size: 11px; }
+          header h1 { font-size: 1.1rem; }
+          .tab-btn { font-size: 12px; padding: 6px 10px; }
+        }
     </style>
 </head>
 <body class="min-h-screen bg-gray-50">
 
 <!-- HEADER -->
-<header class="bg-white shadow-md p-4 sticky top-0 z-20">
-  <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-3">
-    <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight text-center sm:text-left">
-      <span class="text-red-800">Five</span> <span class="text-yellow-500">Elements</span>
-      <span class="text-red-800">International</span> <span class="text-yellow-500">School</span>
-      <br class="sm:hidden"><span class="text-gray-600 text-lg font-bold ml-1">Timetable</span>
+<header class="bg-white shadow-md p-3 sm:p-4 sticky top-0 z-20">
+  <div class="max-w-7xl mx-auto flex justify-between items-center gap-2">
+    <h1 class="text-base sm:text-2xl font-extrabold tracking-tight">
+      <span class="text-red-800">FEIS</span>
+      <span class="text-gray-600 font-bold ml-1">Timetable</span>
     </h1>
     <div class="flex items-center gap-2">
-      <span id="user-badge" class="hidden text-sm font-medium text-indigo-700 bg-indigo-50 px-3 py-1 rounded-full"></span>
-      <button id="login-btn" onclick="openLoginModal()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow hover:bg-indigo-700 text-sm flex items-center gap-2">
-        <i data-lucide="log-in" class="w-4 h-4"></i> Login
+      <span id="user-badge" class="hidden text-xs sm:text-sm font-medium text-indigo-700 bg-indigo-50 px-2 sm:px-3 py-1 rounded-full truncate max-w-[120px] sm:max-w-none"></span>
+      <button id="login-btn" onclick="openLoginModal()" class="px-3 sm:px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow hover:bg-indigo-700 text-xs sm:text-sm flex items-center gap-1">
+        <i data-lucide="log-in" class="w-4 h-4"></i> <span class="hidden sm:inline">Login</span>
       </button>
-      <button id="logout-btn" onclick="logout()" class="hidden px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 text-sm flex items-center gap-2">
-        <i data-lucide="log-out" class="w-4 h-4"></i> Logout
+      <button id="logout-btn" onclick="logout()" class="hidden px-3 sm:px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 text-xs sm:text-sm flex items-center gap-1">
+        <i data-lucide="log-out" class="w-4 h-4"></i> <span class="hidden sm:inline">Logout</span>
       </button>
     </div>
   </div>
 </header>
 
 <!-- VIEW TABS (visible when logged in as teacher/admin) -->
-<div id="view-tabs" class="hidden max-w-7xl mx-auto px-4 pt-4">
-  <div class="flex gap-2 border-b">
+<div id="view-tabs" class="hidden max-w-7xl mx-auto px-4 pt-3 sm:pt-4">
+  <div class="flex gap-1 sm:gap-2 border-b overflow-x-auto">
     <button onclick="switchView('student')" data-tab="student" class="tab-btn px-4 py-2 text-sm font-semibold border-b-2 border-indigo-600 text-indigo-600">Student View</button>
     <button onclick="switchView('teacher')" data-tab="teacher" class="tab-btn hidden px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-gray-500 hover:text-gray-700">My Timetable</button>
     <button onclick="switchView('admin')" data-tab="admin" class="tab-btn hidden px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-gray-500 hover:text-gray-700">Admin Edit</button>
@@ -48,13 +51,13 @@
 </div>
 
 <!-- MAIN CONTENT -->
-<main class="max-w-7xl mx-auto p-4 sm:p-6">
+<main class="max-w-7xl mx-auto p-3 sm:p-6">
 
   <!-- CONTROLS -->
-  <div id="controls" class="bg-white rounded-xl shadow-lg p-4 mb-6 flex flex-col sm:flex-row gap-3 items-start sm:items-center flex-wrap">
+  <div id="controls" class="bg-white rounded-xl shadow-lg p-3 sm:p-4 mb-4 sm:mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
     <div class="flex items-center gap-2">
-      <label class="text-sm font-medium text-gray-700">Class:</label>
-      <select id="sel-grade" onchange="onClassChange()" class="py-2 px-3 border rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500">
+      <label class="text-sm font-medium text-gray-700 whitespace-nowrap">Class:</label>
+      <select id="sel-grade" onchange="onClassChange()" class="py-2 px-3 border rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500 flex-1">
         <option value="">Loading...</option>
       </select>
     </div>
@@ -71,21 +74,21 @@
         <option value="FRI">Friday</option><option value="SAT">Saturday</option>
       </select>
     </div>
-    <div id="admin-save-area" class="hidden ml-auto flex items-center gap-2 flex-wrap">
-      <button onclick="runSetupData()" class="px-4 py-2 bg-amber-500 text-white font-semibold rounded-lg shadow hover:bg-amber-600 text-sm flex items-center gap-2">
-        <i data-lucide="database" class="w-4 h-4"></i> Setup Data
+    <div id="admin-save-area" class="hidden sm:ml-auto flex items-center gap-2 flex-wrap">
+      <button onclick="runSetupData()" class="px-3 py-2 bg-amber-500 text-white font-semibold rounded-lg shadow hover:bg-amber-600 text-xs sm:text-sm flex items-center gap-1">
+        <i data-lucide="database" class="w-4 h-4"></i> Setup
       </button>
-      <button onclick="openAddClassModal()" class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow hover:bg-blue-700 text-sm flex items-center gap-2">
+      <button onclick="openAddClassModal()" class="px-3 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow hover:bg-blue-700 text-xs sm:text-sm flex items-center gap-1">
         <i data-lucide="plus" class="w-4 h-4"></i> Add Class
       </button>
-      <button onclick="saveChanges()" class="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg shadow hover:bg-green-700 text-sm flex items-center gap-2">
-        <i data-lucide="save" class="w-4 h-4"></i> Save Changes
+      <button onclick="saveChanges()" class="px-3 py-2 bg-green-600 text-white font-semibold rounded-lg shadow hover:bg-green-700 text-xs sm:text-sm flex items-center gap-1">
+        <i data-lucide="save" class="w-4 h-4"></i> Save
       </button>
     </div>
   </div>
 
   <!-- TIMETABLE GRID -->
-  <div id="timetable-container" class="bg-white rounded-xl shadow-lg overflow-x-auto">
+  <div id="timetable-container" class="bg-white rounded-xl shadow-lg overflow-x-auto -mx-4 sm:mx-0 rounded-none sm:rounded-xl">
     <div class="p-8 text-center text-gray-400">
       <i data-lucide="loader" class="w-8 h-8 mx-auto animate-spin mb-2"></i>
       <p>Loading timetable...</p>
@@ -247,7 +250,7 @@
 
 <script>
 // --- Config ---
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyFOxKH9r1cO8Sg0sF6fOeyu4bUcm5lbhBA1-g7rJ0lRdvs9tyq9l_Pq1GVL2_ObrsxKw/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzwftrIapLceBnYDh-z6tSxFFgIRsR7WUGP7vHMEXve1tBnZGjBkj7UGtw2DPBS1JuyfQ/exec';
 const DAYS = ['MON','TUE','WED','THU','FRI','SAT'];
 const DAY_NAMES = {MON:'Monday',TUE:'Tuesday',WED:'Wednesday',THU:'Thursday',FRI:'Friday',SAT:'Saturday'};
 const SUBJECT_COLORS = {
@@ -912,6 +915,8 @@ window.onload = function() {
   // Restore login session
   const saved = sessionStorage.getItem('ttUser');
   if (saved) { currentUser = JSON.parse(saved); updateAuthUI(); }
+  // Auto day view on mobile
+  if (window.innerWidth < 640) setViewMode('day');
   document.getElementById('login-form').addEventListener('submit', handleLogin);
   document.getElementById('edit-cell-form').addEventListener('submit', handleEditCell);
   document.getElementById('add-class-form').addEventListener('submit', handleAddClass);
