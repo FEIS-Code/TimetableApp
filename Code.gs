@@ -11,7 +11,17 @@ const CONFIG_SHEET = 'Config';
 const TEACHERS_SHEET = 'Teachers';
 
 function getSheet(name) {
-  return SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(name);
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(name);
+  if (sheet) return sheet;
+  // Try case-insensitive match
+  var sheets = ss.getSheets();
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].getName().trim().toLowerCase() === name.trim().toLowerCase()) {
+      return sheets[i];
+    }
+  }
+  return null;
 }
 
 // --- Web App Entry Points ---
