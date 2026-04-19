@@ -668,6 +668,7 @@ async function handleLogin(e) {
     const result = await res.json();
     if (result.success) {
       currentUser = {role: result.role, displayName: result.displayName, username: result.username, _pw: pass};
+      sessionStorage.setItem('ttUser', JSON.stringify(currentUser));
       closeLoginModal();
       updateAuthUI();
     } else {
@@ -682,6 +683,7 @@ async function handleLogin(e) {
 
 function logout() {
   currentUser = null;
+  sessionStorage.removeItem('ttUser');
   currentView = 'student';
   editedCells = {};
   updateAuthUI();
@@ -834,6 +836,9 @@ async function loadUsersForSettings() {
 
 // --- Init ---
 window.onload = function() {
+  // Restore login session
+  const saved = sessionStorage.getItem('ttUser');
+  if (saved) { currentUser = JSON.parse(saved); updateAuthUI(); }
   document.getElementById('login-form').addEventListener('submit', handleLogin);
   document.getElementById('edit-cell-form').addEventListener('submit', handleEditCell);
   document.getElementById('add-class-form').addEventListener('submit', handleAddClass);
