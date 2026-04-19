@@ -35,6 +35,9 @@ function doGet(e) {
     case 'teachers':
       result = getTeachers();
       break;
+    case 'users':
+      result = getUsers(e.parameter.u, e.parameter.p);
+      break;
     case 'all':
       result = getAllTimetables();
       break;
@@ -264,6 +267,20 @@ function getTeachers() {
       subjects: String(data[i][1] || '').trim(),
       classes: String(data[i][2] || '').trim()
     });
+  }
+  return result;
+}
+
+function getUsers(username, password) {
+  var auth = login(username, password);
+  if (!auth.success || auth.role !== 'admin') return { error: 'Unauthorized' };
+  var sheet = getSheet(USERS_SHEET);
+  if (!sheet) return [];
+  var data = sheet.getDataRange().getValues();
+  var result = [];
+  for (var i = 1; i < data.length; i++) {
+    if (!data[i][0]) continue;
+    result.push({ username: String(data[i][0]), password: String(data[i][1]), role: String(data[i][2]), displayName: String(data[i][3]) });
   }
   return result;
 }

@@ -237,7 +237,7 @@
 
 <script>
 // --- Config ---
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzFgsVlLHUOJy_JSGOb12DGWNbP5eSWmwHq_Bw6BI_0HbTWwKrkX49mvZzxJjeF7lvb/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxqZJ_R1h6_PvjRL1LvN4xmFjc3fBntZTWtprs-4e9og4Nm9X2P59Js5XsYFFBjE6yV-w/exec';
 const DAYS = ['MON','TUE','WED','THU','FRI','SAT'];
 const DAY_NAMES = {MON:'Monday',TUE:'Tuesday',WED:'Wednesday',THU:'Thursday',FRI:'Friday',SAT:'Saturday'};
 const SUBJECT_COLORS = {
@@ -812,17 +812,16 @@ async function saveAllSettings() {
 }
 
 async function loadUsersForSettings() {
-  // Users need a dedicated endpoint - for now initialize from known defaults
-  // Admin can edit and save
-  if (!window._usersCache || window._usersCache.length === 0) {
-    window._usersCache = [
-      {username:'admin', password:'admin123', role:'admin', displayName:'Administrator'}
-    ];
-    // Add teacher accounts from teachersData
-    teachersData.forEach(t => {
-      const uname = t.name.replace(/^Ms\.\s*/i,'').replace(/^Mr\.\s*/i,'').split(' ')[0].toLowerCase();
-      window._usersCache.push({username: uname, password:'teach123', role:'teacher', displayName: t.name});
-    });
+  try {
+    const res = await fetch(SCRIPT_URL + `?action=users&u=${encodeURIComponent(currentUser.username)}&p=${encodeURIComponent(currentUser._pw)}`);
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      window._usersCache = data;
+    } else {
+      window._usersCache = [];
+    }
+  } catch(err) {
+    window._usersCache = [];
   }
   renderUsersList();
 }
