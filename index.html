@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FEIS Timetable</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📅</text></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -266,21 +267,26 @@ let configData = {};   // {Grades:'3,4,...', Sections:'A,B', Subjects:'MATH,...'
 let teachersData = []; // [{name, subjects, classes}]
 
 // --- Data Loading ---
+async function fetchJSON(url) {
+  const res = await fetch(url, {redirect: 'follow'});
+  return res.json();
+}
+
 async function loadData() {
   try {
-    const [ttRes, cfgRes, tchRes] = await Promise.all([
-      fetch(SCRIPT_URL + '?action=all'),
-      fetch(SCRIPT_URL + '?action=config'),
-      fetch(SCRIPT_URL + '?action=teachers')
+    const [tt, cfg, tch] = await Promise.all([
+      fetchJSON(SCRIPT_URL + '?action=all'),
+      fetchJSON(SCRIPT_URL + '?action=config'),
+      fetchJSON(SCRIPT_URL + '?action=teachers')
     ]);
-    allData = await ttRes.json();
-    configData = await cfgRes.json();
-    teachersData = await tchRes.json();
+    allData = tt;
+    configData = cfg;
+    teachersData = tch;
     populateClassSelector();
     renderTimetable();
   } catch(err) {
     document.getElementById('timetable-container').innerHTML =
-      '<p class="p-8 text-center text-red-500">Error loading data. Check script URL.</p>';
+      `<p class="p-8 text-center text-red-500">Error loading data: ${err.message}. Make sure the script is deployed with "Anyone" access.</p>`;
   }
 }
 
@@ -655,7 +661,8 @@ async function handleLogin(e) {
   try {
     const res = await fetch(SCRIPT_URL, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      redirect: 'follow',
+      headers: {'Content-Type': 'text/plain'},
       body: JSON.stringify({action: 'login', username: user, password: pass})
     });
     const result = await res.json();
@@ -813,10 +820,9 @@ async function saveAllSettings() {
 
 async function loadUsersForSettings() {
   try {
-    const res = await fetch(SCRIPT_URL + `?action=users&u=${encodeURIComponent(currentUser.username)}&p=${encodeURIComponent(currentUser._pw)}`);
-    const data = await res.json();
-    if (Array.isArray(data)) {
-      window._usersCache = data;
+    const res = await fetchJSON(SCRIPT_URL + `?action=users&u=${encodeURIComponent(currentUser.username)}&p=${encodeURIComponent(currentUser._pw)}`);
+    if (Array.isArray(res)) {
+      window._usersCache = res;
     } else {
       window._usersCache = [];
     }

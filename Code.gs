@@ -97,7 +97,7 @@ function doPost(e) {
 function getAllTimetables() {
   var sheet = getSheet(TIMETABLE_SHEET);
   if (!sheet) return [];
-  var data = sheet.getDataRange().getValues();
+  var data = sheet.getDataRange().getDisplayValues();
   if (data.length < 2) return [];
   var headers = data[0];
   var rows = [];
