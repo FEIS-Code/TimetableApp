@@ -42,6 +42,7 @@
     <button onclick="switchView('student')" data-tab="student" class="tab-btn px-4 py-2 text-sm font-semibold border-b-2 border-indigo-600 text-indigo-600">Student View</button>
     <button onclick="switchView('teacher')" data-tab="teacher" class="tab-btn hidden px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-gray-500 hover:text-gray-700">My Timetable</button>
     <button onclick="switchView('admin')" data-tab="admin" class="tab-btn hidden px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-gray-500 hover:text-gray-700">Admin Edit</button>
+    <button onclick="switchView('settings')" data-tab="settings" class="tab-btn hidden px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-gray-500 hover:text-gray-700">Settings</button>
   </div>
 </div>
 
@@ -92,6 +93,60 @@
 
   <!-- TEACHER PERSONAL TT -->
   <div id="teacher-tt-container" class="hidden bg-white rounded-xl shadow-lg overflow-x-auto">
+  </div>
+
+  <!-- SETTINGS PANEL (admin only) -->
+  <div id="settings-container" class="hidden space-y-6">
+
+    <!-- Setup Data -->
+    <div class="bg-white rounded-xl shadow-lg p-5">
+      <h3 class="font-bold text-lg text-gray-800 mb-3 flex items-center gap-2"><i data-lucide="database" class="w-5 h-5 text-amber-500"></i> Data Setup</h3>
+      <p class="text-sm text-gray-500 mb-3">Reset and re-populate all timetable data from defaults.</p>
+      <button onclick="runSetupData()" class="px-4 py-2 bg-amber-500 text-white font-semibold rounded-lg hover:bg-amber-600 text-sm">Run Setup Data</button>
+    </div>
+
+    <!-- Grades & Sections -->
+    <div class="bg-white rounded-xl shadow-lg p-5">
+      <h3 class="font-bold text-lg text-gray-800 mb-3 flex items-center gap-2"><i data-lucide="school" class="w-5 h-5 text-blue-500"></i> Grades &amp; Sections</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Grades (comma-separated)</label>
+          <input id="cfg-grades" type="text" class="w-full rounded-lg border p-2.5 text-sm" placeholder="3,4,5,6,7,8,9" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Sections (comma-separated)</label>
+          <input id="cfg-sections" type="text" class="w-full rounded-lg border p-2.5 text-sm" placeholder="A,B" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Subjects -->
+    <div class="bg-white rounded-xl shadow-lg p-5">
+      <h3 class="font-bold text-lg text-gray-800 mb-3 flex items-center gap-2"><i data-lucide="book-open" class="w-5 h-5 text-purple-500"></i> Subjects</h3>
+      <label class="block text-sm font-medium text-gray-700 mb-1">All Subjects (comma-separated)</label>
+      <textarea id="cfg-subjects" rows="2" class="w-full rounded-lg border p-2.5 text-sm" placeholder="MATH,ENG,SCI,..."></textarea>
+    </div>
+
+    <!-- Teachers -->
+    <div class="bg-white rounded-xl shadow-lg p-5">
+      <h3 class="font-bold text-lg text-gray-800 mb-3 flex items-center gap-2"><i data-lucide="users" class="w-5 h-5 text-green-500"></i> Teachers</h3>
+      <div id="teachers-list" class="space-y-2 mb-3"></div>
+      <button onclick="addTeacherRow()" class="text-sm text-indigo-600 font-medium hover:underline flex items-center gap-1"><i data-lucide="plus" class="w-4 h-4"></i> Add Teacher</button>
+    </div>
+
+    <!-- Users / Credentials -->
+    <div class="bg-white rounded-xl shadow-lg p-5">
+      <h3 class="font-bold text-lg text-gray-800 mb-3 flex items-center gap-2"><i data-lucide="key" class="w-5 h-5 text-red-500"></i> User Accounts</h3>
+      <div id="users-list" class="space-y-2 mb-3"></div>
+      <button onclick="addUserRow()" class="text-sm text-indigo-600 font-medium hover:underline flex items-center gap-1"><i data-lucide="plus" class="w-4 h-4"></i> Add User</button>
+    </div>
+
+    <!-- Save All Settings -->
+    <div class="flex justify-end">
+      <button onclick="saveAllSettings()" class="px-6 py-3 bg-green-600 text-white font-bold rounded-lg shadow-lg hover:bg-green-700 flex items-center gap-2">
+        <i data-lucide="save" class="w-5 h-5"></i> Save All Settings
+      </button>
+    </div>
   </div>
 
 </main>
@@ -161,11 +216,15 @@
       <input type="hidden" id="edit-cell-key">
       <div>
         <label class="block text-sm font-medium text-gray-700">Subject</label>
-        <input id="edit-subject" type="text" class="mt-1 w-full rounded-lg border p-2.5 text-sm" />
+        <select id="edit-subject" class="mt-1 w-full rounded-lg border p-2.5 text-sm">
+          <option value="">— Select —</option>
+        </select>
       </div>
       <div>
         <label class="block text-sm font-medium text-gray-700">Teacher</label>
-        <input id="edit-teacher" type="text" class="mt-1 w-full rounded-lg border p-2.5 text-sm" />
+        <select id="edit-teacher" class="mt-1 w-full rounded-lg border p-2.5 text-sm">
+          <option value="">— Select —</option>
+        </select>
       </div>
       <div>
         <label class="block text-sm font-medium text-gray-700">Room</label>
@@ -201,20 +260,39 @@ const SUBJECT_COLORS = {
 let allData = [];
 let currentUser = null; // {role, displayName, username}
 let viewMode = 'week';
-let currentView = 'student'; // student | teacher | admin
+let currentView = 'student'; // student | teacher | admin | settings
 let editedCells = {};
+let configData = {};   // {Grades:'3,4,...', Sections:'A,B', Subjects:'MATH,...'}
+let teachersData = []; // [{name, subjects, classes}]
 
 // --- Data Loading ---
 async function loadData() {
   try {
-    const res = await fetch(SCRIPT_URL + '?action=all');
-    allData = await res.json();
+    const [ttRes, cfgRes, tchRes] = await Promise.all([
+      fetch(SCRIPT_URL + '?action=all'),
+      fetch(SCRIPT_URL + '?action=config'),
+      fetch(SCRIPT_URL + '?action=teachers')
+    ]);
+    allData = await ttRes.json();
+    configData = await cfgRes.json();
+    teachersData = await tchRes.json();
     populateClassSelector();
     renderTimetable();
   } catch(err) {
     document.getElementById('timetable-container').innerHTML =
       '<p class="p-8 text-center text-red-500">Error loading data. Check script URL.</p>';
   }
+}
+
+function getSubjectsList() {
+  return configData.Subjects ? configData.Subjects.split(',').map(s => s.trim()).filter(Boolean) : [];
+}
+function getTeachersForSubject(subj) {
+  if (!subj) return teachersData;
+  return teachersData.filter(t => {
+    const subs = t.subjects.split(',').map(s => s.trim().toUpperCase());
+    return subs.includes(subj.toUpperCase().trim());
+  });
 }
 
 function populateClassSelector() {
@@ -405,11 +483,13 @@ function switchView(view) {
     const isActive = b.dataset.tab === view;
     b.className = `tab-btn px-4 py-2 text-sm font-semibold border-b-2 ${isActive ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`;
   });
-  document.getElementById('timetable-container').classList.toggle('hidden', view === 'teacher');
+  document.getElementById('timetable-container').classList.toggle('hidden', view === 'teacher' || view === 'settings');
   document.getElementById('teacher-tt-container').classList.toggle('hidden', view !== 'teacher');
-  document.getElementById('controls').classList.toggle('hidden', view === 'teacher');
+  document.getElementById('settings-container').classList.toggle('hidden', view !== 'settings');
+  document.getElementById('controls').classList.toggle('hidden', view === 'teacher' || view === 'settings');
   document.getElementById('admin-save-area').classList.toggle('hidden', view !== 'admin');
   if (view === 'teacher') renderTeacherTT();
+  else if (view === 'settings') loadSettingsPanel();
   else renderTimetable();
 }
 
@@ -419,13 +499,40 @@ function openEditCell(cellKey, day, period) {
   const existing = allData.find(r => String(r.Grade)===cls.grade && String(r.Section)===cls.section && r.Day===day && String(r.PeriodNum)===period);
   const edited = editedCells[cellKey];
   document.getElementById('edit-cell-key').value = cellKey;
-  document.getElementById('edit-subject').value = edited ? edited.subject : (existing ? existing.Subject : '');
-  document.getElementById('edit-teacher').value = edited ? edited.teacher : (existing ? existing.Teacher : '');
+
+  // Populate subject dropdown
+  const subjSel = document.getElementById('edit-subject');
+  const subjects = getSubjectsList();
+  subjSel.innerHTML = '<option value="">— Select —</option>' + subjects.map(s => `<option value="${s}">${s}</option>`).join('');
+  const curSubj = edited ? edited.subject : (existing ? existing.Subject : '');
+  subjSel.value = curSubj.toUpperCase().trim();
+  // If value not in list, add it
+  if (curSubj && !subjSel.value) {
+    subjSel.innerHTML += `<option value="${curSubj}">${curSubj}</option>`;
+    subjSel.value = curSubj;
+  }
+
+  // Populate teacher dropdown based on selected subject
+  populateTeacherDropdown(curSubj);
+  const curTeacher = edited ? edited.teacher : (existing ? existing.Teacher : '');
+  const tchSel = document.getElementById('edit-teacher');
+  tchSel.value = curTeacher;
+  if (curTeacher && !tchSel.value) {
+    tchSel.innerHTML += `<option value="${curTeacher}">${curTeacher}</option>`;
+    tchSel.value = curTeacher;
+  }
+
   document.getElementById('edit-room').value = edited ? edited.room : (existing ? existing.Room : '');
   document.getElementById('edit-cell-title').textContent = `Edit ${DAY_NAMES[day]} P${period}`;
   const m = document.getElementById('edit-cell-modal');
   m.classList.remove('hidden'); m.classList.add('flex');
   lucide.createIcons();
+}
+
+function populateTeacherDropdown(subject) {
+  const tchSel = document.getElementById('edit-teacher');
+  const teachers = subject ? getTeachersForSubject(subject) : teachersData;
+  tchSel.innerHTML = '<option value="">— Select —</option>' + teachers.map(t => `<option value="${t.name}">${t.name}</option>`).join('');
 }
 function closeEditCellModal() {
   const m = document.getElementById('edit-cell-modal');
@@ -585,13 +692,16 @@ function updateAuthUI() {
     document.getElementById('user-badge').textContent = `${currentUser.displayName} (${currentUser.role})`;
     const teacherTab = document.querySelector('[data-tab="teacher"]');
     const adminTab = document.querySelector('[data-tab="admin"]');
+    const settingsTab = document.querySelector('[data-tab="settings"]');
     teacherTab.classList.toggle('hidden', currentUser.role === 'admin');
     adminTab.classList.toggle('hidden', currentUser.role !== 'admin');
+    settingsTab.classList.toggle('hidden', currentUser.role !== 'admin');
     // Admin also sees teacher tab
     if (currentUser.role === 'admin') teacherTab.classList.remove('hidden');
   } else {
     document.getElementById('timetable-container').classList.remove('hidden');
     document.getElementById('teacher-tt-container').classList.add('hidden');
+    document.getElementById('settings-container').classList.add('hidden');
     document.getElementById('controls').classList.remove('hidden');
     document.getElementById('admin-save-area').classList.add('hidden');
     document.querySelectorAll('.tab-btn').forEach(b => {
@@ -600,11 +710,131 @@ function updateAuthUI() {
   }
 }
 
+// --- Settings Panel ---
+function loadSettingsPanel() {
+  document.getElementById('cfg-grades').value = configData.Grades || '';
+  document.getElementById('cfg-sections').value = configData.Sections || '';
+  document.getElementById('cfg-subjects').value = configData.Subjects || '';
+  renderTeachersList();
+  loadUsersForSettings();
+  lucide.createIcons();
+}
+
+function renderTeachersList() {
+  const container = document.getElementById('teachers-list');
+  container.innerHTML = teachersData.map((t, i) => `
+    <div class="flex gap-2 items-center flex-wrap p-2 bg-gray-50 rounded-lg">
+      <input type="text" value="${t.name}" placeholder="Name" data-ti="${i}" data-tf="name" class="teacher-input flex-1 min-w-[120px] rounded border p-1.5 text-sm" />
+      <input type="text" value="${t.subjects}" placeholder="Subjects (comma-sep)" data-ti="${i}" data-tf="subjects" class="teacher-input flex-1 min-w-[140px] rounded border p-1.5 text-sm" />
+      <input type="text" value="${t.classes}" placeholder="Classes (e.g. 9A,8A)" data-ti="${i}" data-tf="classes" class="teacher-input flex-1 min-w-[140px] rounded border p-1.5 text-sm" />
+      <button onclick="removeTeacherRow(${i})" class="text-red-400 hover:text-red-600 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+    </div>
+  `).join('');
+  lucide.createIcons();
+}
+
+function addTeacherRow() {
+  teachersData.push({name:'', subjects:'', classes:''});
+  renderTeachersList();
+}
+function removeTeacherRow(i) {
+  teachersData.splice(i, 1);
+  renderTeachersList();
+}
+function collectTeachersFromUI() {
+  document.querySelectorAll('.teacher-input').forEach(inp => {
+    const i = parseInt(inp.dataset.ti);
+    const f = inp.dataset.tf;
+    if (teachersData[i]) teachersData[i][f] = inp.value.trim();
+  });
+}
+
+function renderUsersList() {
+  // We need to fetch users - for now use a simple approach
+  const container = document.getElementById('users-list');
+  if (!window._usersCache) window._usersCache = [];
+  container.innerHTML = window._usersCache.map((u, i) => `
+    <div class="flex gap-2 items-center flex-wrap p-2 bg-gray-50 rounded-lg">
+      <input type="text" value="${u.username}" placeholder="Username" data-ui="${i}" data-uf="username" class="user-input flex-1 min-w-[100px] rounded border p-1.5 text-sm" />
+      <input type="text" value="${u.password}" placeholder="Password" data-ui="${i}" data-uf="password" class="user-input flex-1 min-w-[100px] rounded border p-1.5 text-sm" />
+      <select data-ui="${i}" data-uf="role" class="user-input rounded border p-1.5 text-sm">
+        <option value="admin" ${u.role==='admin'?'selected':''}>admin</option>
+        <option value="teacher" ${u.role==='teacher'?'selected':''}>teacher</option>
+      </select>
+      <input type="text" value="${u.displayName}" placeholder="Display Name" data-ui="${i}" data-uf="displayName" class="user-input flex-1 min-w-[120px] rounded border p-1.5 text-sm" />
+      <button onclick="removeUserRow(${i})" class="text-red-400 hover:text-red-600 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+    </div>
+  `).join('');
+  lucide.createIcons();
+}
+function addUserRow() {
+  if (!window._usersCache) window._usersCache = [];
+  window._usersCache.push({username:'', password:'', role:'teacher', displayName:''});
+  renderUsersList();
+}
+function removeUserRow(i) {
+  window._usersCache.splice(i, 1);
+  renderUsersList();
+}
+function collectUsersFromUI() {
+  if (!window._usersCache) return;
+  document.querySelectorAll('.user-input').forEach(inp => {
+    const i = parseInt(inp.dataset.ui);
+    const f = inp.dataset.uf;
+    if (window._usersCache[i]) window._usersCache[i][f] = inp.value.trim();
+  });
+}
+
+async function saveAllSettings() {
+  if (!currentUser || currentUser.role !== 'admin') return;
+  collectTeachersFromUI();
+  collectUsersFromUI();
+  const auth = {username: currentUser.username, password: currentUser._pw};
+  const newConfig = {
+    Grades: document.getElementById('cfg-grades').value.trim(),
+    Sections: document.getElementById('cfg-sections').value.trim(),
+    Subjects: document.getElementById('cfg-subjects').value.trim()
+  };
+  try {
+    await Promise.all([
+      fetch(SCRIPT_URL, {method:'POST', mode:'no-cors', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({action:'saveConfig', auth, config: newConfig})}),
+      fetch(SCRIPT_URL, {method:'POST', mode:'no-cors', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({action:'saveTeachers', auth, teachers: teachersData.filter(t => t.name)})}),
+      window._usersCache && window._usersCache.length > 0 ?
+        fetch(SCRIPT_URL, {method:'POST', mode:'no-cors', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({action:'saveUsers', auth, users: window._usersCache.filter(u => u.username)})}) :
+        Promise.resolve()
+    ]);
+    alert('Settings saved! Reloading...');
+    setTimeout(loadData, 2500);
+  } catch(err) { alert('Error: ' + err.message); }
+}
+
+async function loadUsersForSettings() {
+  // Users need a dedicated endpoint - for now initialize from known defaults
+  // Admin can edit and save
+  if (!window._usersCache || window._usersCache.length === 0) {
+    window._usersCache = [
+      {username:'admin', password:'admin123', role:'admin', displayName:'Administrator'}
+    ];
+    // Add teacher accounts from teachersData
+    teachersData.forEach(t => {
+      const uname = t.name.replace(/^Ms\.\s*/i,'').replace(/^Mr\.\s*/i,'').split(' ')[0].toLowerCase();
+      window._usersCache.push({username: uname, password:'teach123', role:'teacher', displayName: t.name});
+    });
+  }
+  renderUsersList();
+}
+
 // --- Init ---
 window.onload = function() {
   document.getElementById('login-form').addEventListener('submit', handleLogin);
   document.getElementById('edit-cell-form').addEventListener('submit', handleEditCell);
   document.getElementById('add-class-form').addEventListener('submit', handleAddClass);
+  document.getElementById('edit-subject').addEventListener('change', function() {
+    populateTeacherDropdown(this.value);
+  });
   loadData();
   lucide.createIcons();
 };

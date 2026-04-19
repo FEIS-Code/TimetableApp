@@ -7,6 +7,8 @@
 const SPREADSHEET_ID = '1l6Kpp5sATMqQihsiMySolk1jIRIrqIn6LHvEQUov53A';
 const TIMETABLE_SHEET = 'Timetable';
 const USERS_SHEET = 'Users';
+const CONFIG_SHEET = 'Config';
+const TEACHERS_SHEET = 'Teachers';
 
 function getSheet(name) {
   return SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(name);
@@ -26,6 +28,12 @@ function doGet(e) {
       break;
     case 'teachertt':
       result = getTeacherTimetable(e.parameter.teacher);
+      break;
+    case 'config':
+      result = getConfig();
+      break;
+    case 'teachers':
+      result = getTeachers();
       break;
     case 'all':
       result = getAllTimetables();
@@ -65,6 +73,15 @@ function doPost(e) {
       break;
     case 'addClass':
       result = addClassTimetable(data);
+      break;
+    case 'saveConfig':
+      result = saveConfig(data);
+      break;
+    case 'saveTeachers':
+      result = saveTeachers(data);
+      break;
+    case 'saveUsers':
+      result = saveUsers(data);
       break;
     default:
       result = { error: 'Unknown action' };
@@ -221,6 +238,81 @@ function addClassTimetable(data) {
   return { success: true, message: 'Class ' + grade + section + ' added' };
 }
 
+// --- Config & Teachers ---
+
+function getConfig() {
+  var sheet = getSheet(CONFIG_SHEET);
+  if (!sheet) return {};
+  var data = sheet.getDataRange().getValues();
+  var config = {};
+  for (var i = 0; i < data.length; i++) {
+    if (data[i][0]) config[String(data[i][0]).trim()] = String(data[i][1] || '').trim();
+  }
+  return config;
+}
+
+function getTeachers() {
+  var sheet = getSheet(TEACHERS_SHEET);
+  if (!sheet) return [];
+  var data = sheet.getDataRange().getValues();
+  if (data.length < 2) return [];
+  var result = [];
+  for (var i = 1; i < data.length; i++) {
+    if (!data[i][0]) continue;
+    result.push({
+      name: String(data[i][0]).trim(),
+      subjects: String(data[i][1] || '').trim(),
+      classes: String(data[i][2] || '').trim()
+    });
+  }
+  return result;
+}
+
+function saveConfig(data) {
+  var authResult = login(data.auth.username, data.auth.password);
+  if (!authResult.success || authResult.role !== 'admin') return { success: false, message: 'Unauthorized' };
+  var sheet = getSheet(CONFIG_SHEET);
+  if (!sheet) {
+    sheet = SpreadsheetApp.openById(SPREADSHEET_ID).insertSheet(CONFIG_SHEET);
+  }
+  sheet.clear();
+  var entries = data.config; // {key: value, ...}
+  for (var key in entries) {
+    sheet.appendRow([key, entries[key]]);
+  }
+  return { success: true };
+}
+
+function saveTeachers(data) {
+  var authResult = login(data.auth.username, data.auth.password);
+  if (!authResult.success || authResult.role !== 'admin') return { success: false, message: 'Unauthorized' };
+  var sheet = getSheet(TEACHERS_SHEET);
+  if (!sheet) {
+    sheet = SpreadsheetApp.openById(SPREADSHEET_ID).insertSheet(TEACHERS_SHEET);
+  }
+  sheet.clear();
+  sheet.appendRow(['Name', 'Subjects', 'Classes']);
+  var teachers = data.teachers; // [{name, subjects, classes}]
+  for (var i = 0; i < teachers.length; i++) {
+    sheet.appendRow([teachers[i].name, teachers[i].subjects, teachers[i].classes]);
+  }
+  return { success: true };
+}
+
+function saveUsers(data) {
+  var authResult = login(data.auth.username, data.auth.password);
+  if (!authResult.success || authResult.role !== 'admin') return { success: false, message: 'Unauthorized' };
+  var sheet = getSheet(USERS_SHEET);
+  if (!sheet) return { success: false, message: 'Users sheet not found' };
+  sheet.clear();
+  sheet.appendRow(['Username', 'Password', 'Role', 'DisplayName']);
+  var users = data.users;
+  for (var i = 0; i < users.length; i++) {
+    sheet.appendRow([users[i].username, users[i].password, users[i].role, users[i].displayName]);
+  }
+  return { success: true };
+}
+
 // ============================================================
 // setupData() — Run ONCE to create sheets and pre-populate
 // ============================================================
@@ -248,6 +340,39 @@ function setupData() {
   usersSheet.appendRow(['sridevi', 'teach123', 'teacher', 'Ms. Sridevi']);
   usersSheet.appendRow(['usha', 'teach123', 'teacher', 'Ms. Usha']);
   usersSheet.appendRow(['amrutha', 'teach123', 'teacher', 'Ms. Amrutha']);
+
+  // --- Create Config sheet ---
+  var configSheet = ss.getSheetByName(CONFIG_SHEET);
+  if (!configSheet) { configSheet = ss.insertSheet(CONFIG_SHEET); } else { configSheet.clear(); }
+  configSheet.appendRow(['Grades', '3,4,5,6,7,8,9']);
+  configSheet.appendRow(['Sections', 'A,B']);
+  configSheet.appendRow(['Subjects', 'MATH,ENG,SCI,BIO,PHY/CHEM,SOC,ICT,IT,2L,3L,HINDI,TELUGU,EVS,MUS,ART,DANCE,SPORTS,KALARI,SW/CY,HOBBY,LIB,AF,VE,ACTIVITY']);
+  configSheet.appendRow(['PeriodCount', '11']);
+
+  // --- Create Teachers sheet ---
+  var teachersSheet = ss.getSheetByName(TEACHERS_SHEET);
+  if (!teachersSheet) { teachersSheet = ss.insertSheet(TEACHERS_SHEET); } else { teachersSheet.clear(); }
+  teachersSheet.appendRow(['Name', 'Subjects', 'Classes']);
+  teachersSheet.appendRow(['Ms. Maneesha', 'BIO,SCI', '9A']);
+  teachersSheet.appendRow(['Ms. Madhuri', 'ICT', '8A']);
+  teachersSheet.appendRow(['Ms. Akanksha', 'SOC', '7A']);
+  teachersSheet.appendRow(['Ms. Rajsree', 'ENG', '6A']);
+  teachersSheet.appendRow(['Ms. Sailaja', 'ENG,MATH', '5A']);
+  teachersSheet.appendRow(['Ms. Saritha Ambekar', 'ENG,MATH', '5B']);
+  teachersSheet.appendRow(['Ms. Madhavi', 'ENG,MATH', '4A']);
+  teachersSheet.appendRow(['Ms. Vidya', 'ENG,MATH', '4B']);
+  teachersSheet.appendRow(['Ms. Sridevi', 'ENG,MATH', '3A']);
+  teachersSheet.appendRow(['Ms. Usha', 'ENG,MATH', '3B']);
+  teachersSheet.appendRow(['Ms. Amrutha', 'SCI', '6A,7A,8A,9A']);
+  teachersSheet.appendRow(['Ms. Rakhi', 'HINDI,2L,3L', '6A,7A,8A,9A']);
+  teachersSheet.appendRow(['Ms. Srilatha', 'IT', '3A,3B,4A,4B,5A,5B']);
+  teachersSheet.appendRow(['Ms. Seema', 'EVS', '3A,3B,4A,4B,5A,5B']);
+  teachersSheet.appendRow(['Veena', 'TELUGU', '3A,3B,4A,4B,5A,5B']);
+  teachersSheet.appendRow(['Ms. Chandrika', 'MUS', '3A,3B,4A,4B,5A,5B,6A,7A,8A,9A']);
+  teachersSheet.appendRow(['Ms. Venkatesh', 'DANCE', '3A,3B,4A,4B,5A,5B,6A,7A,8A,9A']);
+  teachersSheet.appendRow(['Ms. Manasa', 'LIB', '3A,3B,4A,4B,5A']);
+  teachersSheet.appendRow(['Ms. Nageshwar Rao', 'SCI,PHY/CHEM', '6A,7A,8A,9A']);
+  teachersSheet.appendRow(['Ms. Sai Kumar', 'SPORTS,KALARI', '3A,3B,4A,4B,5A,5B,6A,7A,8A,9A']);
 
   // --- Create Timetable sheet ---
   var ttSheet = ss.getSheetByName(TIMETABLE_SHEET);
