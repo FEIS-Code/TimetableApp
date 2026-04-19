@@ -54,6 +54,18 @@ function doPost(e) {
     case 'saveTimetable':
       result = saveTimetable(data);
       break;
+    case 'setupData':
+      var authCheck = login(data.username, data.password);
+      if (!authCheck.success || authCheck.role !== 'admin') {
+        result = { success: false, message: 'Unauthorized' };
+      } else {
+        setupData();
+        result = { success: true, message: 'Setup complete' };
+      }
+      break;
+    case 'addClass':
+      result = addClassTimetable(data);
+      break;
     default:
       result = { error: 'Unknown action' };
   }
@@ -163,6 +175,10 @@ function saveTimetable(data) {
         sheet.getRange(i + 1, subjectCol + 1).setValue(entry.Subject);
         sheet.getRange(i + 1, teacherCol + 1).setValue(entry.Teacher || '');
         sheet.getRange(i + 1, roomCol + 1).setValue(entry.Room || '');
+        // Refresh in-memory array too
+        existing[i][subjectCol] = entry.Subject;
+        existing[i][teacherCol] = entry.Teacher || '';
+        existing[i][roomCol] = entry.Room || '';
         found = true;
         break;
       }
@@ -174,6 +190,35 @@ function saveTimetable(data) {
     }
   }
   return { success: true, message: 'Timetable saved' };
+}
+
+function addClassTimetable(data) {
+  var authResult = login(data.auth.username, data.auth.password);
+  if (!authResult.success || authResult.role !== 'admin') {
+    return { success: false, message: 'Unauthorized' };
+  }
+  var sheet = getSheet(TIMETABLE_SHEET);
+  if (!sheet) return { success: false, message: 'Timetable sheet not found' };
+
+  var grade = data.grade;
+  var section = data.section;
+  var isUpper = parseInt(grade) >= 6;
+  var periods = isUpper
+    ? [['0','8:10','8:30'],['00','8:30','9:00'],['1','9:00','9:40'],['2','9:40','10:20'],['3','10:20','11:00'],['4','11:00','11:40'],['5','11:40','12:20'],['L','12:20','1:00'],['6','1:00','1:40'],['7','1:40','2:20'],['8','2:20','3:00']]
+    : [['0','8:20','8:40'],['00','8:40','9:00'],['1','9:00','9:40'],['2','9:40','10:20'],['3','10:20','11:00'],['4','11:00','11:40'],['5','11:40','12:20'],['L','12:20','1:00'],['6','1:00','1:40'],['7','1:40','2:20'],['8','2:20','3:00']];
+  var days = ['MON','TUE','WED','THU','FRI','SAT'];
+  var defaults = {'0':'ASSEMBLY/YOGA','00':'SHORT BREAK','L':'LUNCH BREAK'};
+
+  var rows = [];
+  for (var d = 0; d < days.length; d++) {
+    for (var p = 0; p < periods.length; p++) {
+      var pn = periods[p][0];
+      rows.push([grade, section, days[d], pn, periods[p][1], periods[p][2], defaults[pn] || '', '', '']);
+    }
+  }
+  var lastRow = sheet.getLastRow();
+  sheet.getRange(lastRow + 1, 1, rows.length, 9).setValues(rows);
+  return { success: true, message: 'Class ' + grade + section + ' added' };
 }
 
 // ============================================================

@@ -69,7 +69,13 @@
         <option value="FRI">Friday</option><option value="SAT">Saturday</option>
       </select>
     </div>
-    <div id="admin-save-area" class="hidden ml-auto">
+    <div id="admin-save-area" class="hidden ml-auto flex items-center gap-2 flex-wrap">
+      <button onclick="runSetupData()" class="px-4 py-2 bg-amber-500 text-white font-semibold rounded-lg shadow hover:bg-amber-600 text-sm flex items-center gap-2">
+        <i data-lucide="database" class="w-4 h-4"></i> Setup Data
+      </button>
+      <button onclick="openAddClassModal()" class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow hover:bg-blue-700 text-sm flex items-center gap-2">
+        <i data-lucide="plus" class="w-4 h-4"></i> Add Class
+      </button>
       <button onclick="saveChanges()" class="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg shadow hover:bg-green-700 text-sm flex items-center gap-2">
         <i data-lucide="save" class="w-4 h-4"></i> Save Changes
       </button>
@@ -116,6 +122,56 @@
       </div>
       <p id="login-error" class="text-red-600 text-sm hidden"></p>
       <button type="submit" class="w-full py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 text-sm">Login</button>
+    </form>
+  </div>
+</div>
+
+<!-- ADD CLASS MODAL -->
+<div id="add-class-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black bg-opacity-70 backdrop-blur-sm p-4">
+  <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm">
+    <div class="flex justify-between items-center mb-4 border-b pb-2">
+      <h2 class="text-xl font-bold text-blue-600">Add New Class</h2>
+      <button onclick="closeAddClassModal()" class="text-gray-400 hover:text-gray-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+    </div>
+    <form id="add-class-form" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Grade</label>
+        <select id="new-grade" required class="mt-1 w-full rounded-lg border p-3 text-sm">
+          <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+          <option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Section</label>
+        <input id="new-section" type="text" placeholder="A, B, C..." required class="mt-1 w-full rounded-lg border p-3 text-sm" />
+      </div>
+      <button type="submit" class="w-full py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 text-sm">Add Class</button>
+    </form>
+  </div>
+</div>
+
+<!-- EDIT CELL MODAL -->
+<div id="edit-cell-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black bg-opacity-70 backdrop-blur-sm p-4">
+  <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm">
+    <div class="flex justify-between items-center mb-4 border-b pb-2">
+      <h2 id="edit-cell-title" class="text-lg font-bold text-indigo-600">Edit Period</h2>
+      <button onclick="closeEditCellModal()" class="text-gray-400 hover:text-gray-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+    </div>
+    <form id="edit-cell-form" class="space-y-3">
+      <input type="hidden" id="edit-cell-key">
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Subject</label>
+        <input id="edit-subject" type="text" class="mt-1 w-full rounded-lg border p-2.5 text-sm" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Teacher</label>
+        <input id="edit-teacher" type="text" class="mt-1 w-full rounded-lg border p-2.5 text-sm" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Room</label>
+        <input id="edit-room" type="text" class="mt-1 w-full rounded-lg border p-2.5 text-sm" />
+      </div>
+      <button type="submit" class="w-full py-2.5 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 text-sm">Update</button>
     </form>
   </div>
 </div>
@@ -245,11 +301,17 @@ function renderTimetable() {
 
       if (isAdmin && !isBreak && p !== '0' && p !== '00') {
         const cellKey = `${cls.grade}-${cls.section}-${d}-${p}`;
-        const editVal = editedCells[cellKey] !== undefined ? editedCells[cellKey] : cell.subject;
-        html += `<td class="p-1 border tt-cell ${isToday ? 'current-day-col' : ''}">
-          <input type="text" value="${editVal}" data-key="${cellKey}" data-period="${p}" data-day="${d}"
-            onchange="onCellEdit(this)"
-            class="w-full p-1.5 text-xs rounded border border-gray-200 focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400 text-center font-medium" />
+        const edited = editedCells[cellKey];
+        const dispSubj = edited ? edited.subject : cell.subject;
+        const dispTeacher = edited ? edited.teacher : cell.teacher;
+        const dispRoom = edited ? edited.room : cell.room;
+        const color = getSubjectColor(dispSubj);
+        const hasEdit = !!edited;
+        html += `<td class="p-1.5 border tt-cell cursor-pointer hover:bg-indigo-50 ${isToday ? 'current-day-col' : ''} ${hasEdit ? 'ring-2 ring-indigo-400 ring-inset' : ''}"
+          onclick="openEditCell('${cellKey}','${d}','${p}')">
+          <div class="rounded-lg px-2 py-1.5 text-center ${color} font-medium text-xs">${(dispSubj || '—').toUpperCase()}</div>
+          ${dispTeacher ? `<div class="text-[10px] text-gray-400 text-center mt-0.5">${dispTeacher}</div>` : ''}
+          ${dispRoom ? `<div class="text-[10px] text-gray-400 text-center">${dispRoom}</div>` : ''}
         </td>`;
       } else {
         html += `<td class="p-1.5 border tt-cell ${isToday ? 'current-day-col' : ''}">
@@ -352,8 +414,74 @@ function switchView(view) {
 }
 
 // --- Admin Edit ---
-function onCellEdit(input) {
-  editedCells[input.dataset.key] = input.value;
+function openEditCell(cellKey, day, period) {
+  const cls = getSelectedClass();
+  const existing = allData.find(r => String(r.Grade)===cls.grade && String(r.Section)===cls.section && r.Day===day && String(r.PeriodNum)===period);
+  const edited = editedCells[cellKey];
+  document.getElementById('edit-cell-key').value = cellKey;
+  document.getElementById('edit-subject').value = edited ? edited.subject : (existing ? existing.Subject : '');
+  document.getElementById('edit-teacher').value = edited ? edited.teacher : (existing ? existing.Teacher : '');
+  document.getElementById('edit-room').value = edited ? edited.room : (existing ? existing.Room : '');
+  document.getElementById('edit-cell-title').textContent = `Edit ${DAY_NAMES[day]} P${period}`;
+  const m = document.getElementById('edit-cell-modal');
+  m.classList.remove('hidden'); m.classList.add('flex');
+  lucide.createIcons();
+}
+function closeEditCellModal() {
+  const m = document.getElementById('edit-cell-modal');
+  m.classList.add('hidden'); m.classList.remove('flex');
+}
+function handleEditCell(e) {
+  e.preventDefault();
+  const key = document.getElementById('edit-cell-key').value;
+  editedCells[key] = {
+    subject: document.getElementById('edit-subject').value.trim(),
+    teacher: document.getElementById('edit-teacher').value.trim(),
+    room: document.getElementById('edit-room').value.trim()
+  };
+  closeEditCellModal();
+  renderTimetable();
+}
+
+function openAddClassModal() {
+  const m = document.getElementById('add-class-modal');
+  m.classList.remove('hidden'); m.classList.add('flex');
+  document.getElementById('add-class-form').reset();
+  lucide.createIcons();
+}
+function closeAddClassModal() {
+  const m = document.getElementById('add-class-modal');
+  m.classList.add('hidden'); m.classList.remove('flex');
+}
+async function handleAddClass(e) {
+  e.preventDefault();
+  if (!currentUser || currentUser.role !== 'admin') return;
+  const grade = document.getElementById('new-grade').value;
+  const section = document.getElementById('new-section').value.trim().toUpperCase();
+  try {
+    await fetch(SCRIPT_URL, {
+      method:'POST', mode:'no-cors', cache:'no-cache',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({action:'addClass', auth:{username:currentUser.username, password:currentUser._pw}, grade, section})
+    });
+    alert(`Class ${grade}${section} added! Reloading...`);
+    closeAddClassModal();
+    setTimeout(loadData, 2000);
+  } catch(err) { alert('Error: ' + err.message); }
+}
+
+async function runSetupData() {
+  if (!currentUser || currentUser.role !== 'admin') return;
+  if (!confirm('This will reset and re-populate all timetable data. Continue?')) return;
+  try {
+    await fetch(SCRIPT_URL, {
+      method:'POST', mode:'no-cors', cache:'no-cache',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({action:'setupData', username:currentUser.username, password:currentUser._pw})
+    });
+    alert('Setup complete! Reloading in 3 seconds...');
+    setTimeout(loadData, 3000);
+  } catch(err) { alert('Error: ' + err.message); }
 }
 
 async function saveChanges() {
@@ -363,16 +491,18 @@ async function saveChanges() {
 
   const entries = [];
   for (const key in editedCells) {
-    const [g, s, d, p] = key.split('-');
+    const parts = key.split('-');
+    const g = parts[0], s = parts[1], d = parts[2], p = parts[3];
     if (g !== cls.grade || s !== cls.section) continue;
     const periodData = allData.find(r => String(r.Grade) === g && String(r.Section) === s && r.Day === d && String(r.PeriodNum) === p);
+    const edited = editedCells[key];
     entries.push({
       Grade: g, Section: s, Day: d, PeriodNum: p,
       PeriodStart: periodData ? periodData.PeriodStart : '',
       PeriodEnd: periodData ? periodData.PeriodEnd : '',
-      Subject: editedCells[key],
-      Teacher: periodData ? periodData.Teacher : '',
-      Room: periodData ? periodData.Room : ''
+      Subject: edited.subject,
+      Teacher: edited.teacher,
+      Room: edited.room
     });
   }
 
@@ -473,6 +603,8 @@ function updateAuthUI() {
 // --- Init ---
 window.onload = function() {
   document.getElementById('login-form').addEventListener('submit', handleLogin);
+  document.getElementById('edit-cell-form').addEventListener('submit', handleEditCell);
+  document.getElementById('add-class-form').addEventListener('submit', handleAddClass);
   loadData();
   lucide.createIcons();
 };
