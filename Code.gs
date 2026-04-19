@@ -7,8 +7,10 @@
 const SPREADSHEET_ID = '1l6Kpp5sATMqQihsiMySolk1jIRIrqIn6LHvEQUov53A';
 const TIMETABLE_SHEET = 'Timetable';
 const USERS_SHEET = 'Users';
-const CONFIG_SHEET = 'Config';
 const TEACHERS_SHEET = 'Teachers';
+const GRADES_SHEET = 'Grades';
+const SECTIONS_SHEET = 'Sections';
+const SUBJECTS_SHEET = 'Subjects';
 
 function getSheet(name) {
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -40,7 +42,7 @@ function doGet(e) {
       result = getTeacherTimetable(e.parameter.teacher);
       break;
     case 'config':
-      result = getConfig();
+      result = { grades: getGrades(), sections: getSections(), subjects: getSubjects() };
       break;
     case 'teachers':
       result = getTeachers();
@@ -88,7 +90,7 @@ function doPost(e) {
       result = addClassTimetable(data);
       break;
     case 'saveConfig':
-      result = saveConfig(data);
+      result = saveAllConfig(data);
       break;
     case 'saveTeachers':
       result = saveTeachers(data);
@@ -251,17 +253,81 @@ function addClassTimetable(data) {
   return { success: true, message: 'Class ' + grade + section + ' added' };
 }
 
-// --- Config & Teachers ---
+// --- Grades, Sections, Subjects ---
 
-function getConfig() {
-  var sheet = getSheet(CONFIG_SHEET);
-  if (!sheet) return {};
-  var data = sheet.getDataRange().getValues();
-  var config = {};
-  for (var i = 0; i < data.length; i++) {
-    if (data[i][0]) config[String(data[i][0]).trim()] = String(data[i][1] || '').trim();
+function getGrades() {
+  var sheet = getSheet(GRADES_SHEET);
+  if (!sheet) return [];
+  var data = sheet.getDataRange().getDisplayValues();
+  var result = [];
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0]) result.push(String(data[i][0]).trim());
   }
-  return config;
+  return result;
+}
+
+function getSections() {
+  var sheet = getSheet(SECTIONS_SHEET);
+  if (!sheet) return [];
+  var data = sheet.getDataRange().getDisplayValues();
+  var result = [];
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0]) result.push({ grade: String(data[i][0]).trim(), section: String(data[i][1] || '').trim() });
+  }
+  return result;
+}
+
+function getSubjects() {
+  var sheet = getSheet(SUBJECTS_SHEET);
+  if (!sheet) return [];
+  var data = sheet.getDataRange().getDisplayValues();
+  var result = [];
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0]) result.push(String(data[i][0]).trim());
+  }
+  return result;
+}
+
+function saveAllConfig(data) {
+  var authResult = login(data.auth.username, data.auth.password);
+  if (!authResult.success || authResult.role !== 'admin') return { success: false, message: 'Unauthorized' };
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+
+  // Grades
+  var gs = getSheet(GRADES_SHEET) || ss.insertSheet(GRADES_SHEET);
+  gs.clear();
+  gs.appendRow(['Grade']);
+  (data.grades || []).forEach(function(g) { gs.appendRow([g]); });
+
+  // Sections
+  var sc = getSheet(SECTIONS_SHEET) || ss.insertSheet(SECTIONS_SHEET);
+  sc.clear();
+  sc.appendRow(['Grade', 'Section']);
+  (data.sections || []).forEach(function(s) { sc.appendRow([s.grade, s.section]); });
+
+  // Subjects
+  var su = getSheet(SUBJECTS_SHEET) || ss.insertSheet(SUBJECTS_SHEET);
+  su.clear();
+  su.appendRow(['Subject']);
+  (data.subjects || []).forEach(function(s) { su.appendRow([s]); });
+
+  return { success: true };
+}
+
+function saveTeachers(data) {
+  var authResult = login(data.auth.username, data.auth.password);
+  if (!authResult.success || authResult.role !== 'admin') return { success: false, message: 'Unauthorized' };
+  var sheet = getSheet(TEACHERS_SHEET);
+  if (!sheet) {
+    sheet = SpreadsheetApp.openById(SPREADSHEET_ID).insertSheet(TEACHERS_SHEET);
+  }
+  sheet.clear();
+  sheet.appendRow(['Name', 'Subjects', 'Classes']);
+  var teachers = data.teachers;
+  for (var i = 0; i < teachers.length; i++) {
+    sheet.appendRow([teachers[i].name, teachers[i].subjects, teachers[i].classes]);
+  }
+  return { success: true };
 }
 
 function getTeachers() {
@@ -310,22 +376,6 @@ function saveConfig(data) {
   return { success: true };
 }
 
-function saveTeachers(data) {
-  var authResult = login(data.auth.username, data.auth.password);
-  if (!authResult.success || authResult.role !== 'admin') return { success: false, message: 'Unauthorized' };
-  var sheet = getSheet(TEACHERS_SHEET);
-  if (!sheet) {
-    sheet = SpreadsheetApp.openById(SPREADSHEET_ID).insertSheet(TEACHERS_SHEET);
-  }
-  sheet.clear();
-  sheet.appendRow(['Name', 'Subjects', 'Classes']);
-  var teachers = data.teachers; // [{name, subjects, classes}]
-  for (var i = 0; i < teachers.length; i++) {
-    sheet.appendRow([teachers[i].name, teachers[i].subjects, teachers[i].classes]);
-  }
-  return { success: true };
-}
-
 function saveUsers(data) {
   var authResult = login(data.auth.username, data.auth.password);
   if (!authResult.success || authResult.role !== 'admin') return { success: false, message: 'Unauthorized' };
@@ -368,13 +418,23 @@ function setupData() {
   usersSheet.appendRow(['usha', 'teach123', 'teacher', 'Ms. Usha']);
   usersSheet.appendRow(['amrutha', 'teach123', 'teacher', 'Ms. Amrutha']);
 
-  // --- Create Config sheet ---
-  var configSheet = ss.getSheetByName(CONFIG_SHEET);
-  if (!configSheet) { configSheet = ss.insertSheet(CONFIG_SHEET); } else { configSheet.clear(); }
-  configSheet.appendRow(['Grades', '3,4,5,6,7,8,9']);
-  configSheet.appendRow(['Sections', 'A,B']);
-  configSheet.appendRow(['Subjects', 'MATH,ENG,SCI,BIO,PHY/CHEM,SOC,ICT,IT,2L,3L,HINDI,TELUGU,EVS,MUS,ART,DANCE,SPORTS,KALARI,SW/CY,HOBBY,LIB,AF,VE,ACTIVITY']);
-  configSheet.appendRow(['PeriodCount', '11']);
+  // --- Create Grades sheet ---
+  var gradesSheet = ss.getSheetByName(GRADES_SHEET);
+  if (!gradesSheet) { gradesSheet = ss.insertSheet(GRADES_SHEET); } else { gradesSheet.clear(); }
+  gradesSheet.appendRow(['Grade']);
+  ['3','4','5','6','7','8','9'].forEach(function(g) { gradesSheet.appendRow([g]); });
+
+  // --- Create Sections sheet ---
+  var sectionsSheet = ss.getSheetByName(SECTIONS_SHEET);
+  if (!sectionsSheet) { sectionsSheet = ss.insertSheet(SECTIONS_SHEET); } else { sectionsSheet.clear(); }
+  sectionsSheet.appendRow(['Grade', 'Section']);
+  [['3','A'],['3','B'],['4','A'],['4','B'],['5','A'],['5','B'],['6','A'],['7','A'],['8','A'],['9','A']].forEach(function(r) { sectionsSheet.appendRow(r); });
+
+  // --- Create Subjects sheet ---
+  var subjectsSheet = ss.getSheetByName(SUBJECTS_SHEET);
+  if (!subjectsSheet) { subjectsSheet = ss.insertSheet(SUBJECTS_SHEET); } else { subjectsSheet.clear(); }
+  subjectsSheet.appendRow(['Subject']);
+  ['MATH','ENG','SCI','BIO','PHY/CHEM','SOC','ICT','IT','2L','3L','HINDI','TELUGU','EVS','MUS','ART','DANCE','SPORTS','KALARI','SW/CY','HOBBY','LIB','AF','VE','ACTIVITY'].forEach(function(s) { subjectsSheet.appendRow([s]); });
 
   // --- Create Teachers sheet ---
   var teachersSheet = ss.getSheetByName(TEACHERS_SHEET);
