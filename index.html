@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FEIS Timetable</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .tt-cell { min-width: 90px; }
+        .current-day-col { background-color: #eef2ff !important; }
+        .current-period-row { box-shadow: inset 0 0 0 2px #6366f1; border-radius: 4px; }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-50">
+
+<!-- HEADER -->
+<header class="bg-white shadow-md p-4 sticky top-0 z-20">
+  <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-3">
+    <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight text-center sm:text-left">
+      <span class="text-red-800">Five</span> <span class="text-yellow-500">Elements</span>
+      <span class="text-red-800">International</span> <span class="text-yellow-500">School</span>
+      <br class="sm:hidden"><span class="text-gray-600 text-lg font-bold ml-1">Timetable</span>
+    </h1>
+    <div class="flex items-center gap-2">
+      <span id="user-badge" class="hidden text-sm font-medium text-indigo-700 bg-indigo-50 px-3 py-1 rounded-full"></span>
+      <button id="login-btn" onclick="openLoginModal()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow hover:bg-indigo-700 text-sm flex items-center gap-2">
+        <i data-lucide="log-in" class="w-4 h-4"></i> Login
+      </button>
+      <button id="logout-btn" onclick="logout()" class="hidden px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 text-sm flex items-center gap-2">
+        <i data-lucide="log-out" class="w-4 h-4"></i> Logout
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- VIEW TABS (visible when logged in as teacher/admin) -->
+<div id="view-tabs" class="hidden max-w-7xl mx-auto px-4 pt-4">
+  <div class="flex gap-2 border-b">
+    <button onclick="switchView('student')" data-tab="student" class="tab-btn px-4 py-2 text-sm font-semibold border-b-2 border-indigo-600 text-indigo-600">Student View</button>
+    <button onclick="switchView('teacher')" data-tab="teacher" class="tab-btn hidden px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-gray-500 hover:text-gray-700">My Timetable</button>
+    <button onclick="switchView('admin')" data-tab="admin" class="tab-btn hidden px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-gray-500 hover:text-gray-700">Admin Edit</button>
+  </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<main class="max-w-7xl mx-auto p-4 sm:p-6">
+
+  <!-- CONTROLS -->
+  <div id="controls" class="bg-white rounded-xl shadow-lg p-4 mb-6 flex flex-col sm:flex-row gap-3 items-start sm:items-center flex-wrap">
+    <div class="flex items-center gap-2">
+      <label class="text-sm font-medium text-gray-700">Class:</label>
+      <select id="sel-grade" onchange="onClassChange()" class="py-2 px-3 border rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500">
+        <option value="">Loading...</option>
+      </select>
+    </div>
+    <div class="flex items-center gap-2">
+      <label class="text-sm font-medium text-gray-700">View:</label>
+      <button onclick="setViewMode('week')" id="btn-week" class="px-3 py-1.5 text-sm font-medium rounded-lg bg-indigo-600 text-white">Week</button>
+      <button onclick="setViewMode('day')" id="btn-day" class="px-3 py-1.5 text-sm font-medium rounded-lg bg-gray-200 text-gray-700">Day</button>
+    </div>
+    <div id="day-selector" class="hidden flex items-center gap-2">
+      <label class="text-sm font-medium text-gray-700">Day:</label>
+      <select id="sel-day" onchange="renderTimetable()" class="py-2 px-3 border rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500">
+        <option value="MON">Monday</option><option value="TUE">Tuesday</option>
+        <option value="WED">Wednesday</option><option value="THU">Thursday</option>
+        <option value="FRI">Friday</option><option value="SAT">Saturday</option>
+      </select>
+    </div>
+    <div id="admin-save-area" class="hidden ml-auto">
+      <button onclick="saveChanges()" class="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg shadow hover:bg-green-700 text-sm flex items-center gap-2">
+        <i data-lucide="save" class="w-4 h-4"></i> Save Changes
+      </button>
+    </div>
+  </div>
+
+  <!-- TIMETABLE GRID -->
+  <div id="timetable-container" class="bg-white rounded-xl shadow-lg overflow-x-auto">
+    <div class="p-8 text-center text-gray-400">
+      <i data-lucide="loader" class="w-8 h-8 mx-auto animate-spin mb-2"></i>
+      <p>Loading timetable...</p>
+    </div>
+  </div>
+
+  <!-- TEACHER PERSONAL TT -->
+  <div id="teacher-tt-container" class="hidden bg-white rounded-xl shadow-lg overflow-x-auto">
+  </div>
+
+</main>
+
+<!-- FOOTER -->
+<footer class="max-w-7xl mx-auto px-4 py-8 text-center text-gray-500">
+  <p class="font-semibold mb-2 text-lg">An App by <span class="text-indigo-600 font-bold">Team Phoenix The Changer</span></p>
+  <p class="text-sm">Abhi ram &amp; Advaithareddy (Grade 9) &bull; Aniruddh (Grade 8)</p>
+  <p class="text-sm">Agastya Reddy, Akanksha &amp; Aryak (Grade 7)</p>
+  <p class="text-xs text-gray-400 mt-1">Mentor: Ms. Amrutha</p>
+</footer>
+
+<!-- LOGIN MODAL -->
+<div id="login-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black bg-opacity-70 backdrop-blur-sm p-4">
+  <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm">
+    <div class="flex justify-between items-center mb-4 border-b pb-2">
+      <h2 class="text-xl font-bold text-indigo-600">Login</h2>
+      <button onclick="closeLoginModal()" class="text-gray-400 hover:text-gray-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+    </div>
+    <form id="login-form" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Username</label>
+        <input id="login-user" type="text" required class="mt-1 w-full rounded-lg border p-3 text-sm focus:ring-indigo-500 focus:border-indigo-500" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Password</label>
+        <input id="login-pass" type="password" required class="mt-1 w-full rounded-lg border p-3 text-sm focus:ring-indigo-500 focus:border-indigo-500" />
+      </div>
+      <p id="login-error" class="text-red-600 text-sm hidden"></p>
+      <button type="submit" class="w-full py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 text-sm">Login</button>
+    </form>
+  </div>
+</div>
+
+<script>
+// --- Config ---
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzFgsVlLHUOJy_JSGOb12DGWNbP5eSWmwHq_Bw6BI_0HbTWwKrkX49mvZzxJjeF7lvb/exec';
+const DAYS = ['MON','TUE','WED','THU','FRI','SAT'];
+const DAY_NAMES = {MON:'Monday',TUE:'Tuesday',WED:'Wednesday',THU:'Thursday',FRI:'Friday',SAT:'Saturday'};
+const SUBJECT_COLORS = {
+  'MATH':'bg-blue-100 text-blue-800','ENG':'bg-emerald-100 text-emerald-800',
+  'SCI':'bg-purple-100 text-purple-800','BIO':'bg-green-100 text-green-800',
+  'PHY/CHEM':'bg-violet-100 text-violet-800','SOC':'bg-orange-100 text-orange-800',
+  'SOCIAL':'bg-orange-100 text-orange-800','ICT':'bg-cyan-100 text-cyan-800',
+  'IT':'bg-cyan-100 text-cyan-800','2L':'bg-pink-100 text-pink-800',
+  '3L':'bg-pink-100 text-pink-800','HINDI':'bg-pink-100 text-pink-800',
+  'TELUGU':'bg-pink-100 text-pink-800','EVS':'bg-lime-100 text-lime-800',
+  'MUS':'bg-rose-100 text-rose-800','ART':'bg-rose-100 text-rose-800',
+  'DANCE':'bg-rose-100 text-rose-800','SPORTS':'bg-teal-100 text-teal-800',
+  'KALARI':'bg-teal-100 text-teal-800','SW/CY':'bg-teal-100 text-teal-800',
+  'HOBBY':'bg-amber-100 text-amber-800','LIB':'bg-yellow-100 text-yellow-800',
+  'ASSEMBLY/YOGA':'bg-gray-100 text-gray-600','SHORT BREAK':'bg-gray-50 text-gray-400',
+  'LUNCH BREAK':'bg-gray-100 text-gray-500','AF':'bg-amber-100 text-amber-800',
+  'VE':'bg-amber-100 text-amber-800','ACTIVITY':'bg-amber-100 text-amber-800',
+};
+
+let allData = [];
+let currentUser = null; // {role, displayName, username}
+let viewMode = 'week';
+let currentView = 'student'; // student | teacher | admin
+let editedCells = {};
+
+// --- Data Loading ---
+async function loadData() {
+  try {
+    const res = await fetch(SCRIPT_URL + '?action=all');
+    allData = await res.json();
+    populateClassSelector();
+    renderTimetable();
+  } catch(err) {
+    document.getElementById('timetable-container').innerHTML =
+      '<p class="p-8 text-center text-red-500">Error loading data. Check script URL.</p>';
+  }
+}
+
+function populateClassSelector() {
+  const sel = document.getElementById('sel-grade');
+  const classMap = {};
+  allData.forEach(r => { classMap[r.Grade + '-' + r.Section] = {g:r.Grade, s:r.Section}; });
+  const classes = Object.values(classMap).sort((a,b) => (parseInt(b.g)||0) - (parseInt(a.g)||0) || a.s.localeCompare(b.s));
+  sel.innerHTML = classes.map(c => `<option value="${c.g}-${c.s}">Grade ${c.g} ${c.s}</option>`).join('');
+  // Auto-select today's day
+  const today = ['SUN','MON','TUE','WED','THU','FRI','SAT'][new Date().getDay()];
+  if (DAYS.includes(today)) document.getElementById('sel-day').value = today;
+}
+
+function getSelectedClass() {
+  const v = document.getElementById('sel-grade').value;
+  if (!v) return null;
+  const [g, s] = v.split('-');
+  return {grade: g, section: s};
+}
+
+function getClassData(grade, section) {
+  return allData.filter(r => String(r.Grade) === String(grade) && String(r.Section) === String(section));
+}
+
+// --- Rendering ---
+function getSubjectColor(subj) {
+  if (!subj) return 'bg-gray-50 text-gray-300';
+  const s = subj.toUpperCase().trim();
+  return SUBJECT_COLORS[s] || 'bg-indigo-50 text-indigo-700';
+}
+
+function renderTimetable() {
+  const cls = getSelectedClass();
+  if (!cls) return;
+  const data = getClassData(cls.grade, cls.section);
+  if (!data.length) {
+    document.getElementById('timetable-container').innerHTML = '<p class="p-8 text-center text-gray-400">No timetable data for this class.</p>';
+    return;
+  }
+
+  // Build period list from data
+  const periodOrder = ['0','00','1','2','3','4','5','L','6','7','8'];
+  const periodMap = {};
+  data.forEach(r => {
+    if (!periodMap[r.PeriodNum]) periodMap[r.PeriodNum] = {start: r.PeriodStart, end: r.PeriodEnd};
+  });
+  const periods = periodOrder.filter(p => periodMap[p]);
+
+  // Build grid: period -> day -> subject
+  const grid = {};
+  data.forEach(r => {
+    if (!grid[r.PeriodNum]) grid[r.PeriodNum] = {};
+    grid[r.PeriodNum][r.Day] = {subject: r.Subject || '', teacher: r.Teacher || '', room: r.Room || ''};
+  });
+
+  const today = ['SUN','MON','TUE','WED','THU','FRI','SAT'][new Date().getDay()];
+  const isAdmin = currentView === 'admin';
+  const daysToShow = viewMode === 'day' ? [document.getElementById('sel-day').value] : DAYS;
+
+  let html = '<table class="w-full text-sm border-collapse">';
+  // Header
+  html += '<thead><tr><th class="p-2 border bg-gray-50 text-gray-600 text-xs font-semibold sticky left-0 z-10 min-w-[80px]">Period</th>';
+  daysToShow.forEach(d => {
+    const isToday = d === today;
+    html += `<th class="p-2 border text-xs font-semibold tt-cell ${isToday ? 'bg-indigo-50 text-indigo-700' : 'bg-gray-50 text-gray-600'}">${DAY_NAMES[d]}${isToday ? ' ★' : ''}</th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  // Rows
+  periods.forEach(p => {
+    const info = periodMap[p];
+    const label = p === 'L' ? '🍽 Lunch' : p === '0' ? 'Assembly' : p === '00' ? 'Break' : `P${p}`;
+    const timeStr = `${info.start}–${info.end}`;
+    const isBreak = p === 'L' || p === '0' || p === '00';
+
+    html += `<tr class="${isBreak ? 'bg-gray-50' : ''}">`;
+    html += `<td class="p-2 border bg-gray-50 text-xs font-semibold text-gray-600 sticky left-0 z-10"><div>${label}</div><div class="text-[10px] text-gray-400 font-normal">${timeStr}</div></td>`;
+
+    daysToShow.forEach(d => {
+      const cell = (grid[p] && grid[p][d]) ? grid[p][d] : {subject:'', teacher:'', room:''};
+      const subj = cell.subject.toUpperCase().trim();
+      const color = getSubjectColor(subj);
+      const isToday = d === today;
+
+      if (isAdmin && !isBreak && p !== '0' && p !== '00') {
+        const cellKey = `${cls.grade}-${cls.section}-${d}-${p}`;
+        const editVal = editedCells[cellKey] !== undefined ? editedCells[cellKey] : cell.subject;
+        html += `<td class="p-1 border tt-cell ${isToday ? 'current-day-col' : ''}">
+          <input type="text" value="${editVal}" data-key="${cellKey}" data-period="${p}" data-day="${d}"
+            onchange="onCellEdit(this)"
+            class="w-full p-1.5 text-xs rounded border border-gray-200 focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400 text-center font-medium" />
+        </td>`;
+      } else {
+        html += `<td class="p-1.5 border tt-cell ${isToday ? 'current-day-col' : ''}">
+          <div class="rounded-lg px-2 py-1.5 text-center ${color} font-medium text-xs">${subj || '—'}</div>
+          ${cell.teacher ? `<div class="text-[10px] text-gray-400 text-center mt-0.5">${cell.teacher}</div>` : ''}
+          ${cell.room ? `<div class="text-[10px] text-gray-400 text-center">${cell.room}</div>` : ''}
+        </td>`;
+      }
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  document.getElementById('timetable-container').innerHTML = html;
+  lucide.createIcons();
+}
+
+function renderTeacherTT() {
+  if (!currentUser) return;
+  const teacherName = currentUser.displayName;
+  const data = allData.filter(r => r.Teacher && r.Teacher.toLowerCase().includes(teacherName.toLowerCase()));
+
+  const container = document.getElementById('teacher-tt-container');
+  if (!data.length) {
+    container.innerHTML = `<div class="p-8 text-center text-gray-400">
+      <p class="text-lg font-medium mb-2">No personal timetable entries found</p>
+      <p class="text-sm">Your name "${teacherName}" was not found in the Teacher column. Ask admin to assign your classes.</p>
+    </div>`;
+    return;
+  }
+
+  const periodOrder = ['0','00','1','2','3','4','5','L','6','7','8'];
+  const periodMap = {};
+  data.forEach(r => { if (!periodMap[r.PeriodNum]) periodMap[r.PeriodNum] = {start: r.PeriodStart, end: r.PeriodEnd}; });
+  const periods = periodOrder.filter(p => periodMap[p]);
+
+  const grid = {};
+  data.forEach(r => {
+    if (!grid[r.PeriodNum]) grid[r.PeriodNum] = {};
+    grid[r.PeriodNum][r.Day] = {subject: r.Subject, grade: r.Grade, section: r.Section, room: r.Room || ''};
+  });
+
+  const today = ['SUN','MON','TUE','WED','THU','FRI','SAT'][new Date().getDay()];
+
+  let html = `<div class="p-4 border-b bg-indigo-50"><h3 class="font-bold text-indigo-700">${teacherName} — Personal Timetable</h3></div>`;
+  html += '<table class="w-full text-sm border-collapse">';
+  html += '<thead><tr><th class="p-2 border bg-gray-50 text-gray-600 text-xs font-semibold sticky left-0 z-10">Period</th>';
+  DAYS.forEach(d => {
+    const isToday = d === today;
+    html += `<th class="p-2 border text-xs font-semibold tt-cell ${isToday ? 'bg-indigo-50 text-indigo-700' : 'bg-gray-50 text-gray-600'}">${DAY_NAMES[d]}${isToday ? ' ★' : ''}</th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  periods.forEach(p => {
+    const info = periodMap[p];
+    const label = p === 'L' ? '🍽 Lunch' : p === '0' ? 'Assembly' : p === '00' ? 'Break' : `P${p}`;
+    html += `<tr><td class="p-2 border bg-gray-50 text-xs font-semibold text-gray-600 sticky left-0 z-10"><div>${label}</div><div class="text-[10px] text-gray-400 font-normal">${info.start}–${info.end}</div></td>`;
+    DAYS.forEach(d => {
+      const cell = (grid[p] && grid[p][d]) ? grid[p][d] : null;
+      const isToday = d === today;
+      if (cell) {
+        html += `<td class="p-1.5 border tt-cell ${isToday ? 'current-day-col' : ''}">
+          <div class="rounded-lg px-2 py-1.5 text-center bg-indigo-100 text-indigo-800 font-medium text-xs">${cell.grade}${cell.section}</div>
+          <div class="text-[10px] text-gray-500 text-center mt-0.5">${cell.subject}</div>
+          ${cell.room ? `<div class="text-[10px] text-gray-400 text-center">${cell.room}</div>` : ''}
+        </td>`;
+      } else {
+        html += `<td class="p-1.5 border tt-cell ${isToday ? 'current-day-col' : ''}"><div class="text-center text-gray-300 text-xs">—</div></td>`;
+      }
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+// --- View Controls ---
+function setViewMode(mode) {
+  viewMode = mode;
+  document.getElementById('btn-week').className = `px-3 py-1.5 text-sm font-medium rounded-lg ${mode === 'week' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700'}`;
+  document.getElementById('btn-day').className = `px-3 py-1.5 text-sm font-medium rounded-lg ${mode === 'day' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700'}`;
+  document.getElementById('day-selector').classList.toggle('hidden', mode !== 'day');
+  renderTimetable();
+}
+
+function onClassChange() { editedCells = {}; renderTimetable(); }
+
+function switchView(view) {
+  currentView = view;
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    const isActive = b.dataset.tab === view;
+    b.className = `tab-btn px-4 py-2 text-sm font-semibold border-b-2 ${isActive ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`;
+  });
+  document.getElementById('timetable-container').classList.toggle('hidden', view === 'teacher');
+  document.getElementById('teacher-tt-container').classList.toggle('hidden', view !== 'teacher');
+  document.getElementById('controls').classList.toggle('hidden', view === 'teacher');
+  document.getElementById('admin-save-area').classList.toggle('hidden', view !== 'admin');
+  if (view === 'teacher') renderTeacherTT();
+  else renderTimetable();
+}
+
+// --- Admin Edit ---
+function onCellEdit(input) {
+  editedCells[input.dataset.key] = input.value;
+}
+
+async function saveChanges() {
+  if (!currentUser || currentUser.role !== 'admin') return alert('Admin only');
+  const cls = getSelectedClass();
+  if (!cls) return;
+
+  const entries = [];
+  for (const key in editedCells) {
+    const [g, s, d, p] = key.split('-');
+    if (g !== cls.grade || s !== cls.section) continue;
+    const periodData = allData.find(r => String(r.Grade) === g && String(r.Section) === s && r.Day === d && String(r.PeriodNum) === p);
+    entries.push({
+      Grade: g, Section: s, Day: d, PeriodNum: p,
+      PeriodStart: periodData ? periodData.PeriodStart : '',
+      PeriodEnd: periodData ? periodData.PeriodEnd : '',
+      Subject: editedCells[key],
+      Teacher: periodData ? periodData.Teacher : '',
+      Room: periodData ? periodData.Room : ''
+    });
+  }
+
+  if (!entries.length) return alert('No changes to save');
+
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST', mode: 'no-cors', cache: 'no-cache',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        action: 'saveTimetable',
+        auth: {username: currentUser.username, password: currentUser._pw},
+        entries: entries
+      })
+    });
+    alert('Changes saved! Reloading...');
+    editedCells = {};
+    setTimeout(loadData, 2000);
+  } catch(err) {
+    alert('Error saving: ' + err.message);
+  }
+}
+
+// --- Auth ---
+function openLoginModal() {
+  document.getElementById('login-modal').classList.remove('hidden');
+  document.getElementById('login-modal').classList.add('flex');
+  document.getElementById('login-error').classList.add('hidden');
+  document.getElementById('login-form').reset();
+  lucide.createIcons();
+}
+function closeLoginModal() {
+  document.getElementById('login-modal').classList.add('hidden');
+  document.getElementById('login-modal').classList.remove('flex');
+}
+
+async function handleLogin(e) {
+  e.preventDefault();
+  const user = document.getElementById('login-user').value.trim();
+  const pass = document.getElementById('login-pass').value.trim();
+  const errEl = document.getElementById('login-error');
+
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({action: 'login', username: user, password: pass})
+    });
+    const result = await res.json();
+    if (result.success) {
+      currentUser = {role: result.role, displayName: result.displayName, username: result.username, _pw: pass};
+      closeLoginModal();
+      updateAuthUI();
+    } else {
+      errEl.textContent = result.message || 'Invalid credentials';
+      errEl.classList.remove('hidden');
+    }
+  } catch(err) {
+    errEl.textContent = 'Connection error. Try again.';
+    errEl.classList.remove('hidden');
+  }
+}
+
+function logout() {
+  currentUser = null;
+  currentView = 'student';
+  editedCells = {};
+  updateAuthUI();
+  renderTimetable();
+}
+
+function updateAuthUI() {
+  const loggedIn = !!currentUser;
+  document.getElementById('login-btn').classList.toggle('hidden', loggedIn);
+  document.getElementById('logout-btn').classList.toggle('hidden', !loggedIn);
+  document.getElementById('user-badge').classList.toggle('hidden', !loggedIn);
+  document.getElementById('view-tabs').classList.toggle('hidden', !loggedIn);
+
+  if (loggedIn) {
+    document.getElementById('user-badge').textContent = `${currentUser.displayName} (${currentUser.role})`;
+    const teacherTab = document.querySelector('[data-tab="teacher"]');
+    const adminTab = document.querySelector('[data-tab="admin"]');
+    teacherTab.classList.toggle('hidden', currentUser.role === 'admin');
+    adminTab.classList.toggle('hidden', currentUser.role !== 'admin');
+    // Admin also sees teacher tab
+    if (currentUser.role === 'admin') teacherTab.classList.remove('hidden');
+  } else {
+    document.getElementById('timetable-container').classList.remove('hidden');
+    document.getElementById('teacher-tt-container').classList.add('hidden');
+    document.getElementById('controls').classList.remove('hidden');
+    document.getElementById('admin-save-area').classList.add('hidden');
+    document.querySelectorAll('.tab-btn').forEach(b => {
+      b.className = `tab-btn px-4 py-2 text-sm font-semibold border-b-2 ${b.dataset.tab === 'student' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500'}`;
+    });
+  }
+}
+
+// --- Init ---
+window.onload = function() {
+  document.getElementById('login-form').addEventListener('submit', handleLogin);
+  loadData();
+  lucide.createIcons();
+};
+</script>
+</body>
+</html>
